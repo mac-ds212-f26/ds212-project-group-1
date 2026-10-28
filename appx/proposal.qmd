@@ -1,5 +1,28 @@
 ---
 title: "Proposal"
+editor: 
+  markdown: 
+    wrap: 72
 ---
 
 Your proposal go here.
+
+> a title team member names a short description of the project 2-3 broad
+> research questions the team is interested in exploring the
+> reasons/inspirations behind choosing the topic one potential data set
+> that can be used to answer the research questions communication plan,
+> ie, primary communication channel (eg, Google Chat, Slack, Email),
+> expected response time (eg, 24 hours during the week), meeting time
+> (eg, “we will meet 7-8pm every Wednesday”) roles–everyone is expected
+> to contribute to the project but having leads helps with
+> accountability. In particular, determine (1) point of contact–the main
+> person to email the instructor/preceptors, (2) technical lead–the
+> person who will oversee the code base and website, (3) style lead–the
+> person who will make sure the code is following the COMP/STAT 112/212:
+> Code Styling Guide conflict resolution, ie, if a team member misses a
+> deadline, how will the team handle it? How will you make decisions if
+> the team is split 50/50 on a something? a rough implementation plan,
+> ie, list of tasks with due date and roles–refer to the list of
+> deliverables when building your list. The plan should be added as
+> GitHub Issues within the project repository–see the callout box below
+> for details.
