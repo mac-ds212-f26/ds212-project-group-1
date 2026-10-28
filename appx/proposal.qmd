@@ -1,28 +1,49 @@
 ---
-title: "Proposal"
+title: "The Empty Net Gamble: Analyzing the Relationship Between Pull Time and Timing"
 editor: 
   markdown: 
     wrap: 72
 ---
 
-Your proposal go here.
+Team name: BarDown 
 
-> a title team member names a short description of the project 2-3 broad
-> research questions the team is interested in exploring the
-> reasons/inspirations behind choosing the topic one potential data set
-> that can be used to answer the research questions communication plan,
-> ie, primary communication channel (eg, Google Chat, Slack, Email),
-> expected response time (eg, 24 hours during the week), meeting time
-> (eg, “we will meet 7-8pm every Wednesday”) roles–everyone is expected
-> to contribute to the project but having leads helps with
-> accountability. In particular, determine (1) point of contact–the main
-> person to email the instructor/preceptors, (2) technical lead–the
-> person who will oversee the code base and website, (3) style lead–the
-> person who will make sure the code is following the COMP/STAT 112/212:
-> Code Styling Guide conflict resolution, ie, if a team member misses a
-> deadline, how will the team handle it? How will you make decisions if
-> the team is split 50/50 on a something? a rough implementation plan,
-> ie, list of tasks with due date and roles–refer to the list of
-> deliverables when building your list. The plan should be added as
-> GitHub Issues within the project repository–see the callout box below
-> for details.
+Team member names: Feride, Apiu, Tanisha 
+
+Research questions: 
+
+- Does pulling the goalie increase the probability of a tie? 
+- Does pulling the goalie increase the probability of a win in overtime? 
+- Does pulling the goalie lead to more opposing team empty net goals? 
+
+Motivation: We like hockey, and pulling the goalie has been a heavily contested play. 
+
+Datasets: [fastRhockey library](https://fastrhockey.sportsdataverse.org/). This has data on PWHL (Women's hockey) and NHL (Men's hockey). 
+
+Communication plan: Google Chat, response time within 24 hours, 12-1 on Tuesdays.
+
+Roles: 
+
+- Technical lead: Apiu
+- Point-of-contact: Tanisha 
+- Style lead: Feride
+
+Conflict resolution: 
+
+- Communicate beforehand if you expect to miss a deadline. 
+- Talk through disagreements.
+
+Rough implementation plan: 
+
+- 28/10: Submit Proposal 
+- 11/6: Submit PM 2 (Effective communication reflections)
+- 11/6: Get datasets 
+- 11/13: Submit PM 3 (Case study)
+- 11/20: Submit PM 4 (EDA performed by each team member)
+- 11/30: Submit PM 5 (Progess presentation)
+- 12/9: Submit PM 6 (Initial presentation)
+- 12/10: Have README file done 
+- 12/14: Submit PM 7 (Final presentation)
+
+
+
+
