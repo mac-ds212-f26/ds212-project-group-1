@@ -1,5 +1,16 @@
 ---
-title: "Case Study"
+title: "Case Study: Women's Pockets"
 ---
 
-Your case study go here.
+This is the report we looked at: <https://pudding.cool/2018/08/pockets/>
+
+A quick summary: this article looks at how womens' pockets are smaller than mens'. It does this by looking at multiple womens' and mens' jeans to see the size differences between the two, and then points out which specific jeans can hold different everyday items (phones, a pen, a wallet, etc.). 
+
+Comments about data story: 
+- The introduction with visualizations evolves as the reader scrolls from the why the women's pockets are generally smaller than men to comparing the sizes for the front,back and side pockets for both genders. 
+-They also mention the idea behind why women's pockets are small from history.
+- It becomes interactive after the introduction, so that readers could potentially find their own pair of jeans and see how it compares to the rest. It also lets the reader choose their descriptive statistic (average, smallest, largest) to see how pockets work for different fits (skinny vs. straight). The interactive website makes the story unravel in a unique and engaging way. I enjoyed the comparisons and ability to set the parameters yourself. From shapes, styles, prices and brands the article gives us a sense of the evolution of pockets and why the reader should care.
+- The story unfolds in a very casual manner (eg. “So real”) bringing a sort of relatability. They have identified the a problem in the society that affects around 50% of the global population, women. 
+
+
+
