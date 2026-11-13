@@ -1,5 +1,233 @@
 ---
-title: "Member 1 First Name & Last Name Initial"
+title: "Tanisha D."
 ---
 
-Your exploratory data analysis of the team datasets go here.
+```{r, warning=FALSE}
+#Packages and libraries 
+#install.packages("pak") #uncomment if not installed yet 
+#pak::pak("sportsdataverse/fastRhockey")
+library(fastRhockey)
+library(dplyr)
+library(ggplot2)
+library(httr2)
+library(purrr)
+library(tidyr)
+library(stringr)
+library(data.table)
+library(jsonlite)
+```
+
+### Data pull for last 3 full seasons 
+
+```{r, eval=FALSE}
+# Pull play-by-play for every PWHL and NHL game (regular season + playoffs)
+# for the last 3 full seasons: 2023-24, 2024-25, 2025-26.
+# Output: pwhl_games_2024_2026.csv and nhl_games_2024_2026.csv
+# Raw per-game results are cached in ./cache so you can stop and resume.
+
+# ---------------- settings ----------------
+pwhl_seasons <- c(2024, 2025, 2026)   # assumed to be END year (2024 = 2023-24); verify below
+nhl_seasons  <- c("20232024", "20242025", "20252026")
+pause        <- 0.3                   # seconds between requests
+dir.create("cache/pwhl", recursive = TRUE, showWarnings = FALSE)
+dir.create("cache/nhl",  recursive = TRUE, showWarnings = FALSE)
+# ------------------------------------------
+
+# Make every column character so games with different columns/types bind cleanly
+as_chr <- function(df) {
+  df |> mutate(across(everything(), \(x) {
+    if (is.list(x)) map_chr(x, \(v) if (is.null(v)) NA_character_ else toJSON(v, auto_unbox = TRUE))
+    else as.character(x)
+  }))
+}
+
+# Run f(id) for each id, caching to cache_dir/<id>.rds; skip ids already cached
+fetch_cached <- function(ids, cache_dir, f) {
+  failed <- c()
+  for (id in ids) {
+    path <- file.path(cache_dir, paste0(id, ".rds"))
+    if (file.exists(path)) next
+    Sys.sleep(pause)
+    res <- tryCatch(f(id), error = function(e) NULL)
+    if (is.null(res) || nrow(res) == 0) failed <- c(failed, id) else saveRDS(res, path)
+  }
+  failed
+}
+
+# ============================== PWHL ==============================
+get_pwhl_sched <- function(season, type) {
+  tryCatch(pwhl_schedule(season = season, game_type = type), error = function(e) NULL)
+}
+
+pwhl_sched <- map_dfr(pwhl_seasons, function(s) {
+  reg <- get_pwhl_sched(s, "regular")
+  if (is.null(reg)) reg <- tryCatch(pwhl_schedule(season = s), error = function(e) NULL)
+  po  <- get_pwhl_sched(s, "playoffs")
+  if (is.null(po)) message("No playoff schedule returned for PWHL season ", s,
+                           " - check args(pwhl_schedule)")
+  bind_rows(
+    if (!is.null(reg)) as_chr(reg) |> mutate(season_arg = s, season_type = "regular"),
+    if (!is.null(po))  as_chr(po)  |> mutate(season_arg = s, season_type = "playoffs")
+  )
+})
+
+# VERIFY: check the date ranges match the seasons you expect, and the status column
+glimpse(pwhl_sched)
+print(count(pwhl_sched, season_arg, season_type))
+
+pwhl_games <- pwhl_sched |>
+  filter(str_detect(game_status, "Final")) |>     # adjust to your status column
+  distinct(game_id, season_arg, season_type)
+
+pwhl_failed <- fetch_cached(pwhl_games$game_id, "cache/pwhl", \(id) as_chr(pwhl_pbp(game_id = id)))
+
+pwhl_all <- map_dfr(pwhl_games$game_id, function(id) {
+  p <- file.path("cache/pwhl", paste0(id, ".rds"))
+  if (file.exists(p)) readRDS(p) |> mutate(game_id = as.character(id))
+}) |>
+  left_join(mutate(pwhl_games, game_id = as.character(game_id)), by = "game_id")
+
+fwrite(pwhl_all, "../data/raw/pwhl_games_2024_2026.csv")
+
+
+```
+```{r, eval=FALSE}
+# ============================== NHL ==============================
+teams <- c("ANA","ARI","BOS","BUF","CGY","CAR","CHI","COL","CBJ","DAL","DET","EDM",
+           "FLA","LAK","MIN","MTL","NSH","NJD","NYI","NYR","OTT","PHI","PIT","SEA",
+           "SJS","STL","TBL","TOR","UTA","VAN","VGK","WSH","WPG")
+
+get_team_sched <- function(team, season) {
+  Sys.sleep(pause)
+  tryCatch({
+    r <- request(paste0("https://api-web.nhle.com/v1/club-schedule-season/", team, "/", season)) |>
+      req_perform() |> resp_body_string() |> fromJSON(flatten = TRUE)
+    r$games |> transmute(game_id = id, season = season, game_type = gameType,
+                         game_date = gameDate, game_state = gameState)
+  }, error = function(e) NULL)   # ARI/UTA won't exist in every season
+}
+
+nhl_games <- expand_grid(team = teams, season = nhl_seasons) |>
+  pmap_dfr(\(team, season) get_team_sched(team, season)) |>
+  filter(game_type %in% c(2, 3), game_state %in% c("OFF", "FINAL")) |>
+  distinct(game_id, .keep_all = TRUE) |>
+  mutate(season_type = if_else(game_type == 2, "regular", "playoffs"))
+
+print(count(nhl_games, season, season_type))   # expect ~1,312 regular games per season (1,271 in 2023-24)
+
+get_nhl_pbp <- function(id) {
+  g <- request(paste0("https://api-web.nhle.com/v1/gamecenter/", id, "/play-by-play")) |>
+    req_perform() |> resp_body_string() |> fromJSON(flatten = TRUE)
+  as_chr(g$plays) |>
+    mutate(game_id = as.character(id),
+           away_team = g$awayTeam$abbrev, home_team = g$homeTeam$abbrev,
+           away_team_id = as.character(g$awayTeam$id), home_team_id = as.character(g$homeTeam$id))
+}
+
+nhl_failed <- fetch_cached(nhl_games$game_id, "cache/nhl", get_nhl_pbp)
+
+nhl_all <- map_dfr(nhl_games$game_id, function(id) {
+  p <- file.path("cache/nhl", paste0(id, ".rds"))
+  if (file.exists(p)) readRDS(p)
+}) |>
+  left_join(nhl_games |> mutate(game_id = as.character(game_id)) |>
+              select(game_id, season, season_type, game_date), by = "game_id")
+
+fwrite(nhl_all, "../data/raw/nhl_games_2024_2026.csv")
+
+# ============================== summary ==============================
+cat("\nPWHL: ", n_distinct(pwhl_all$game_id), "of", nrow(pwhl_games), "games;",
+    length(pwhl_failed), "failed\n")
+cat("NHL:  ", n_distinct(nhl_all$game_id), "of", nrow(nhl_games), "games;",
+    length(nhl_failed), "failed\n")
+# Re-run the script to retry failed games; cached ones are skipped.
+```
+
+### PWHL 
+
+```{r, eval=FALSE}
+sched <- pwhl_schedule(season = 2025)
+
+game_ids <- sched |>
+  filter(str_detect(game_status, "Final")) |>   # adjust to your status column
+  pull(game_id) |>
+  unique() 
+
+# ---- settings ----
+pull_states      <- c("5v6")   # add "6v5" if strength_state is home-vs-away
+clock_is_elapsed <- TRUE       # FALSE if time_of_period counts down
+# ------------------
+
+to_sec <- function(x) {
+  p <- str_split_fixed(as.character(x), ":", 2)
+  as.numeric(p[, 1]) * 60 + as.numeric(p[, 2])
+}
+
+get_pulls <- function(game_id) {
+  Sys.sleep(0.3)  # be polite to the API
+  pwhl_pbp(game_id = game_id) |>
+    filter(
+      event == "goalie_change",
+      strength_state %in% pull_states,
+      period_of_game == 3
+    ) |>
+    mutate(
+      game_id   = game_id,
+      clock_sec = to_sec(time_of_period),
+      sec_left  = if (clock_is_elapsed) 1200 - clock_sec else clock_sec,
+      time_left = sprintf("%d:%02d", sec_left %/% 60, round(sec_left %% 60))
+    ) |>
+    filter(sec_left <= 300)
+}
+
+game_ids <- pwhl_schedule(season = 2025) |>
+  filter(str_detect(game_status, "Final")) |>   # adjust to your status column
+  pull(game_id) |>
+  unique()
+
+pullspwhl <- map_dfr(game_ids, possibly(get_pulls, NULL))
+saveRDS(pulls, "pwhl_pulls.rds")
+```
+
+### NHL
+
+```{r, eval=FALSE}
+get_pbp <- function(game_id) {
+  Sys.sleep(0.3)  # be polite
+  g <- request(paste0("https://api-web.nhle.com/v1/gamecenter/", game_id, "/play-by-play")) |>
+    req_perform() |> resp_body_json()
+
+  map_dfr(g$plays, \(p) tibble(
+    game_id   = game_id,
+    sort      = p$sortOrder,
+    period    = p$periodDescriptor$number,
+    ptype     = p$periodDescriptor$periodType,
+    clock     = p$timeRemaining,
+    elapsed   = p$timeInPeriod,
+    event     = p$typeDescKey,
+    situation = p$situationCode %||% NA_character_
+  )) |> mutate(away_id = g$awayTeam$abbrev, home_id = g$homeTeam$abbrev)
+}
+
+# Regular season: 2025020001 to 2025021312 (1,312 games)
+# Playoffs are 2025030xxx-style IDs; pull them from the schedule rather than guessing
+ids <- 2025020001:2025020010   # test on a few first
+pbp <- map_dfr(ids, possibly(get_pbp, NULL))
+
+pullsnhl <- pbp |>
+  arrange(game_id, sort) |>
+  group_by(game_id) |>
+  fill(situation, .direction = "down") |>
+  mutate(
+    away_g = substr(situation, 1, 1),
+    home_g = substr(situation, 4, 4),
+    away_pull = away_g == "0" & lag(away_g, default = "1") == "1",
+    home_pull = home_g == "0" & lag(home_g, default = "1") == "1"
+  ) |>
+  filter(away_pull | home_pull) |>
+  ungroup()
+```
+
+
+
+
