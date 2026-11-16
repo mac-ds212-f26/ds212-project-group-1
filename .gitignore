@@ -76,3 +76,5 @@ data/raw/pwhl_games_2024_2026.csv
 data/raw/nhl_games_2024_2026.csv
 eda/nhl_games_2024_2026.csv
 eda/pwhl_games_2024_2026.csv
+/data/raw/hockey_data
+/data/processed

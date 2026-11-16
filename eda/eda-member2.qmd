@@ -1,5 +1,18 @@
 ---
-title: "Member 2 First Name & Last Name Initial"
+title: "Feride K"
 ---
 
-Your exploratory data analysis of the team datasets go here.
+## Title for what I am visualizing: 
+
+## Notes before we start: 
+
+Important: make conditionings/ definitions on what a golie change is (0651 or 1560 depending on whether its home or not).
+pwhl has golie change but not golie pull so NHL is easier to navigate.
+
+Future work: 0641 power play
+
+## Cleaning the data: 
+
+```{r}
+
+```
