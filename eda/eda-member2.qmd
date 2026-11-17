@@ -4,7 +4,7 @@ title: "Feride K"
 
 ## When are goalies pulled?
 
-### Notes before we start: 
+### Notes before we start:
 
 Important: make conditionings/ definitions on what a golie change is (0651 or 1560 depending on whether its home or not).
 pwhl has golie change but not golie pull so NHL is easier to navigate.
