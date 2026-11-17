@@ -2,106 +2,265 @@
 title: "Tanisha D."
 ---
 
+I am looking at the NHL data. This data is slightly more complicated than the pwhl data, because there is no empty_net column or a goalie_change event. Instead, there is a 4-digit Situation Code, structured like this: [Away Goalie][Away skaters][Home skaters][Home Goalie]. If either the first or the last characters are 0, then there is an empty net (the code may look like 1560, 0651, 0440, 0551, 1550, etc.). We also have to make sure the goalie pull is in the last 5 minutes of the period, just to make sure we are not accidentially counting a goalie change. For all of these instances where there is an empty net, we can record the score, and then map whether the team that pulled their goalie (the team that is losing) ended up tying or winning the game. 
+
 ```{r}
+#Load the libraries
 library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(readr)
+library(hms)
+library(stringr)
+library(scales)
 ```
 
 
 ```{r}
-pwhl = read_csv("/Users/tanisha/Intermed. DS/Project/data/raw/pwhl_games_2024_2026.csv")
+#Read in the NHL data
+nhl = read_csv("/Users/tanisha/Intermed. DS/Project/data/raw/nhl_games_2024_2026.csv")
 ```
+### Cleaning and Wrangling the data
 
+```{r}
+#Find all events
+events <- nhl %>%
+  arrange(game_id, sortOrder) %>%
+  group_by(game_id) %>%
+  fill(
+    details.awayScore,
+    details.homeScore,
+    .direction = "down"
+  ) %>%
+  ungroup()
 
-
-Extras: 
-
-### PWHL 
-
-```{r, eval=FALSE}
-sched <- pwhl_schedule(season = 2025)
-
-game_ids <- sched |>
-  filter(str_detect(game_status, "Final")) |>   # adjust to your status column
-  pull(game_id) |>
-  unique() 
-
-# ---- settings ----
-pull_states      <- c("5v6")   # add "6v5" if strength_state is home-vs-away
-clock_is_elapsed <- TRUE       # FALSE if time_of_period counts down
-# ------------------
-
-to_sec <- function(x) {
-  p <- str_split_fixed(as.character(x), ":", 2)
-  as.numeric(p[, 1]) * 60 + as.numeric(p[, 2])
-}
-
-get_pulls <- function(game_id) {
-  Sys.sleep(0.3)  # be polite to the API
-  pwhl_pbp(game_id = game_id) |>
-    filter(
-      event == "goalie_change",
-      strength_state %in% pull_states,
-      period_of_game == 3
-    ) |>
-    mutate(
-      game_id   = game_id,
-      clock_sec = to_sec(time_of_period),
-      sec_left  = if (clock_is_elapsed) 1200 - clock_sec else clock_sec,
-      time_left = sprintf("%d:%02d", sec_left %/% 60, round(sec_left %% 60))
-    ) |>
-    filter(sec_left <= 300)
-}
-
-game_ids <- pwhl_schedule(season = 2025) |>
-  filter(str_detect(game_status, "Final")) |>   # adjust to your status column
-  pull(game_id) |>
-  unique()
-
-pullspwhl <- map_dfr(game_ids, possibly(get_pulls, NULL))
-saveRDS(pulls, "pwhl_pulls.rds")
-```
-
-### NHL
-
-```{r, eval=FALSE}
-get_pbp <- function(game_id) {
-  Sys.sleep(0.3)  # be polite
-  g <- request(paste0("https://api-web.nhle.com/v1/gamecenter/", game_id, "/play-by-play")) |>
-    req_perform() |> resp_body_json()
-
-  map_dfr(g$plays, \(p) tibble(
-    game_id   = game_id,
-    sort      = p$sortOrder,
-    period    = p$periodDescriptor$number,
-    ptype     = p$periodDescriptor$periodType,
-    clock     = p$timeRemaining,
-    elapsed   = p$timeInPeriod,
-    event     = p$typeDescKey,
-    situation = p$situationCode %||% NA_character_
-  )) |> mutate(away_id = g$awayTeam$abbrev, home_id = g$homeTeam$abbrev)
-}
-
-# Regular season: 2025020001 to 2025021312 (1,312 games)
-# Playoffs are 2025030xxx-style IDs; pull them from the schedule rather than guessing
-ids <- 2025020001:2025020010   # test on a few first
-pbp <- map_dfr(ids, possibly(get_pbp, NULL))
-
-pullsnhl <- pbp |>
-  arrange(game_id, sort) |>
-  group_by(game_id) |>
-  fill(situation, .direction = "down") |>
+#Find all goalie pulls 
+events <- events %>%
   mutate(
-    away_g = substr(situation, 1, 1),
-    home_g = substr(situation, 4, 4),
-    away_pull = away_g == "0" & lag(away_g, default = "1") == "1",
-    home_pull = home_g == "0" & lag(home_g, default = "1") == "1"
-  ) |>
-  filter(away_pull | home_pull) |>
+    situationId = as.character(situationCode),
+    away_goalie = str_sub(situationCode, 1, 1),
+    home_goalie = str_sub(situationCode, 4, 4)
+  ) %>%
+  group_by(game_id) %>%
+  arrange(sortOrder, .by_group = TRUE) %>%
+  mutate(
+    prev_away_goalie = lag(away_goalie),
+    prev_home_goalie = lag(home_goalie)
+  ) %>%
+  ungroup()
+
+#Find all away goalie pulls
+away_pulls <- events %>%
+  filter(
+    prev_away_goalie == "1",
+    away_goalie == "0",
+    periodDescriptor.number == 3,
+    timeInPeriod >= hms::as_hms("00:15:00")
+  ) %>%
+  transmute(
+    game_id,
+    team = "Away",
+    situationCode,
+    score_at_pull = details.awayScore,
+    opponent_score_at_pull = details.homeScore,
+    periodDescriptor.number,
+    timeInPeriod,
+    sortOrder
+  )
+
+#Find all home goalie pulls
+home_pulls <- events %>%
+  filter(
+    prev_home_goalie == "1",
+    home_goalie == "0",
+    periodDescriptor.number == 3,
+    timeInPeriod >= hms::as_hms("00:15:00")
+  ) %>%
+  transmute(
+    game_id,
+    team = "Home",
+    situationCode,
+    score_at_pull = details.homeScore,
+    opponent_score_at_pull = details.awayScore,
+    periodDescriptor.number,
+    timeInPeriod,
+    sortOrder
+  )
+```
+
+```{r}
+#Combine home and away pulls
+pulls_5min <- bind_rows(away_pulls, home_pulls) %>%
+  filter(score_at_pull < opponent_score_at_pull) %>%
+  arrange(game_id, team, sortOrder) %>%
+  group_by(game_id, team) %>%
+  slice(1) %>%
   ungroup()
 ```
+
+```{r}
+#Find the final score for all the games in the last three years
+final_scores <- events %>%
+  group_by(game_id) %>%
+  summarise(
+    away_final = max(details.awayScore, na.rm = TRUE),
+    home_final = max(details.homeScore, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+```{r}
+#Merge the results back onto the pulls 
+results_5min <- pulls_5min %>%
+  select(-any_of(c(
+    "away_final", "home_final",
+    "final_team_score", "final_opponent_score",
+    "outcome", "seconds_remaining", "minutes_remaining"
+  ))) %>%
+  left_join(final_scores, by = "game_id") %>%
+  mutate(
+    final_team_score = if_else(
+      team == "Away", away_final, home_final
+    ),
+
+    final_opponent_score = if_else(
+      team == "Away", home_final, away_final
+    ),
+
+    seconds_remaining = 1200 - as.numeric(timeInPeriod),
+    minutes_remaining = seconds_remaining / 60,
+
+    outcome = case_when(
+      is.na(final_team_score) ~ NA_character_,
+      final_team_score > final_opponent_score ~ "Win",
+      final_team_score == final_opponent_score ~ "Tie",
+      TRUE ~ "Loss"
+    )
+  )
+```
+
+### Exploratory Data Analysis and Visualization
+
+```{r}
+overall_results <- results_5min %>%
+  summarise(
+    attempts = n(),
+    wins = sum(outcome == "Win"),
+    ties = sum(outcome == "Tie"),
+    losses = sum(outcome == "Loss"),
+    win_pct = wins / attempts * 100,
+    tie_or_win_pct = (wins + ties) / attempts * 100
+  )
+
+overall_results
+```
+
+```{r}
+results_5min %>%
+  count(outcome) %>%
+  mutate(
+    outcome = factor(
+      outcome,
+      levels = c("Win", "Tie", "Loss")
+    )
+  ) %>%
+  ggplot(aes(x = outcome, y = n, fill = outcome)) +
+  geom_col(width = 0.65) +
+  geom_text(
+    aes(label = paste0(n, " (", round(n/sum(n)*100, 1), "%)")),
+    vjust = -0.5
+  ) +
+  labs(
+    title = "Outcome of Pulling the Goalie",
+    subtitle = "Teams trailing in the final five minutes",
+    x = "Final outcome",
+    y = "Number of games"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+```{r}
+results_5min <- results_5min%>%
+  mutate(score_deficit = opponent_score_at_pull - score_at_pull)
+
+deficit_results <- results_5min %>%
+  group_by(score_deficit) %>%
+  summarise(
+    attempts = n(),
+    wins = sum(outcome == "Win"),
+    ties = sum(outcome == "Tie"),
+    losses = sum(outcome == "Loss"),
+    success_rate = mean(outcome %in% c("Win", "Tie")) * 100,
+    .groups = "drop"
+  )
+
+deficit_results
+```
+
+```{r}
+ggplot(deficit_results,
+       aes(x = factor(score_deficit), y = success_rate)) +
+  geom_col(fill = "steelblue", width = 0.65) +
+  geom_text(
+    aes(label = paste0(round(success_rate, 1), "%")),
+    vjust = -0.5
+  ) +
+  labs(
+    title = "Comeback Success by Goal Deficit",
+    x = "Goals behind when goalie was pulled",
+    y = "Tie or win (%)"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+home_away_results <- results_5min %>%
+  group_by(team) %>%
+  summarise(
+    attempts = n(),
+    wins = sum(outcome == "Win"),
+    ties = sum(outcome == "Tie"),
+    losses = sum(outcome == "Loss"),
+    success_rate = mean(outcome %in% c("Win", "Tie")) * 100,
+    .groups = "drop"
+  )
+
+home_away_results
+```
+
+```{r}
+ggplot(results_5min,
+       aes(x = seconds_remaining / 60,
+           y = score_deficit,
+           color = outcome)) +
+  geom_jitter(width = 0.08, height = 0.08, alpha = 0.7) +
+  scale_x_reverse() +
+  labs(
+    title = "Goalie Pulls: Time Remaining vs. Score Deficit",
+    x = "Minutes remaining",
+    y = "Goals behind",
+    color = "Final outcome"
+  ) +
+  theme_minimal()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
