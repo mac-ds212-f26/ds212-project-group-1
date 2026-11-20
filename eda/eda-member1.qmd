@@ -18,7 +18,7 @@ library(scales)
 
 ```{r}
 #Read in the NHL data
-nhl = read_csv("../data/raw/nhl_games_2024_2026.csv")
+nhl = read_csv("../data/raw/hockey_data/nhl_games_2024_2026.csv")
 ```
 ### Cleaning and Wrangling the data
 
