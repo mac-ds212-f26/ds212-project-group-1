@@ -14,7 +14,13 @@ Future work: 0641 power play
 ```{r}
 
 # Load libraries
-library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(hms)
+library(stringr)
+library(scales)
 library(lubridate)
 library(scales)
 
