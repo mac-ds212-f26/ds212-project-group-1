@@ -1,5 +1,73 @@
 ---
-title: "Member 2 First Name & Last Name Initial"
+title: "Feride K"
 ---
 
-Your exploratory data analysis of the team datasets go here.
+## When are goalies pulled?
+
+### Notes before we start:
+
+Important: make conditionings/ definitions on what a golie change is (0651 or 1560 depending on whether its home or not).
+pwhl has golie change but not golie pull so NHL is easier to navigate.
+
+Future work: 0641 power play
+
+```{r}
+
+# Load libraries
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(hms)
+library(stringr)
+library(scales)
+library(lubridate)
+library(scales)
+
+# Set data directory
+data_dir <- "../data/processed/BarDown_cleaned_project"
+
+# Read cleaned datasets
+nhl <- read_csv(file.path(data_dir, "nhl_events_clean.csv"))
+pwhl <- read_csv(file.path(data_dir, "pwhl_events_clean.csv"))
+pulls <- read_csv(file.path(data_dir, "pwhl_candidate_goalie_pulls.csv"))
+games <- read_csv(file.path(data_dir, "pwhl_game_summary.csv"))
+
+# Inspect datasets
+glimpse(pwhl)
+glimpse(pulls)
+glimpse(games)
+
+```
+
+## Visualization 1: When are goalies pulled?
+
+> This visualization shows how many candidate goalie pulls happen at different times in the third period.
+
+```{r}
+
+# Filter third-period goalie pulls
+pull_timing <- pulls %>%
+  filter(
+    period == 3,
+    !is.na(pull_time_remaining_sec),
+    between(pull_time_remaining_sec, 0, 600)
+  ) %>%
+  mutate(minutes_remaining = pull_time_remaining_sec / 60)
+
+ggplot(pull_timing, aes(x = minutes_remaining)) +
+  geom_histogram(
+    binwidth = 1,
+    fill = "steelblue",
+    color = "white"
+  ) +
+  scale_x_continuous(breaks = 0:10) +
+  labs(
+    title = "When Do Teams Pull Their Goalies?",
+    subtitle = "PWHL candidate goalie pulls in the final 10 minutes",
+    x = "Minutes remaining in the third period",
+    y = "Number of goalie pulls"
+  ) +
+  theme_minimal()
+
+```

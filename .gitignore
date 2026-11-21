@@ -70,3 +70,13 @@ _freeze/
 *.log
 *.aux
 *.toc
+eda/cache/nhl/2023020001.rds
+*.rds
+data/raw/pwhl_games_2024_2026.csv
+data/raw/nhl_games_2024_2026.csv
+eda/nhl_games_2024_2026.csv
+eda/pwhl_games_2024_2026.csv
+/data/raw/hockey_data
+/data/processed
+data/raw/Archive/pwhl_games_2024_2026.csv
+data/raw/Archive/nhl_games_2024_2026.csv
