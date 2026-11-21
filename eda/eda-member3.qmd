@@ -1,5 +1,106 @@
 ---
-title: "Member 3 First Name & Last Name Initial"
+title: "Mary Agou"
 ---
 
 Your exploratory data analysis of the team datasets go here.
+
+
+
+```{r}
+library(tidyverse)
+library(knitr)
+library(rmarkdown)
+nhl_games<-read_csv("../data/raw/nhl_games_2024_2026.csv")
+pwl_games<-read.csv("../data/raw/pwhl_games_2024_2026.csv")
+
+```
+
+
+```{r}
+pwl_games |>
+  filter(!is.na(goal), !is.na(shot_quality)) |>
+  group_by(shot_quality) |>
+  summarise(goals = sum(goal == 1)) |>
+  ggplot(aes(y = goals, x = fct_reorder(shot_quality, goals))) +
+  geom_point(
+    size = 6,
+    colour = "#E76F51"
+  ) +
+  coord_flip() +
+  labs(
+    title = "Goals by Shot Quality",
+    subtitle = "Which shot qualities produce the most goals?",
+    x = "Shot Quality",
+    y = "Number of Goals",
+    caption = "Source: PWHL games, 2024–2026"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(
+      size = 18, face = "bold", colour = "#264653"
+    ),
+    plot.subtitle = element_text(colour = "gray40"),
+    axis.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
+    plot.title.position = "plot"
+  )
+
+
+
+
+
+```
+
+
+
+
+```{r}
+#| eval: false
+
+#renamed the goal to be numeric instead of logical
+pwl_games<-pwl_games|>
+  mutate(goal=as.numeric(goal))
+
+pwl_games|>
+    filter(!is.na(goal))|>
+  filter(!is.na(shot_quality))|>
+count(goal,shot_quality)|>
+  ggplot(aes(shot_quality,y=n,colour = goal))+
+  geom_point(size = 5)+
+  coord_flip()
+```
+```{r}
+
+library(tidyverse)
+
+pwl_games |>
+  filter(!is.na(goal)) |>
+  group_by(player_name_first, player_name_last) |>
+  summarise(goals = sum(goal), .groups = "drop") |>
+  mutate(player = paste(player_name_first, player_name_last)) |>
+  slice_max(goals, n = 20) |>
+  ggplot(aes(x = goals, y = fct_reorder(player, goals))) +
+  geom_col(fill = "#2A9D8F", width = 0.7) +
+  geom_text(aes(label = goals), hjust = -0.4, size = 3.5) +
+  labs(
+    title = "Top 20 Goal Scorers",
+    subtitle = "Players with the most goals in the PWHL dataset",
+    x = "Total Goals",
+    y = NULL,
+    caption = "Source: PWHL game data"
+  ) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.12))) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(color = "gray40"),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+
+
+
